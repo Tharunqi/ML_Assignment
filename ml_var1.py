@@ -36,6 +36,8 @@ from sklearn.model_selection import KFold
 
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
+from sklearn.linear_model import Lasso
+
 """We Try Polynomial Features degree(1-10) with interaction terms as well as without interaction terms and check the results"""
 
 def polynomial_features(X, degree):
@@ -245,10 +247,12 @@ def ridge_regression(X, y, lam):
 
     return beta
 
-degrees = [1, 2, 3, 4, 5]
-lambdas = [0.01, 0.1, 1, 10, 100]
+"""***Regularisation with Ridge,Lasso***"""
 
 from sklearn.preprocessing import StandardScaler
+
+degrees = [1, 2, 3, 4, 5,6,7,8,9,10]
+lambdas = [0.01, 0.1, 1, 10, 100]
 
 results = []
 
@@ -256,8 +260,11 @@ for degree in degrees:
 
     for lam in lambdas:
 
-        fold_mse = []
-        fold_r2 = []
+        ridge_mse = []
+        ridge_r2 = []
+
+        lasso_mse = []
+        lasso_r2 = []
 
         for train_index, val_index in kf.split(X):
 
@@ -289,61 +296,69 @@ for degree in degrees:
                 X_val_poly[:, 1:]
             )
 
-            beta_l2 = ridge_regression(
+            # Ridge
+            beta_ridge = ridge_regression(
                 X_train_scaled,
                 y_train,
                 lam
             )
 
-            pred_l2 = X_val_scaled @ beta_l2
+            pred_ridge = X_val_scaled @ beta_ridge
 
-            fold_mse.append(
-                mse(y_val, pred_l2)
+            ridge_mse.append(
+                mse(y_val, pred_ridge)
             )
 
-            fold_r2.append(
-                r2_score(y_val, pred_l2)
+            ridge_r2.append(
+                r2_score(y_val, pred_ridge)
             )
 
-        mean_mse = np.mean(fold_mse)
-        mean_r2 = np.mean(fold_r2)
+            # Lasso
+            lasso = Lasso(
+                alpha=lam,
+                max_iter=10000
+            )
+
+            lasso.fit(
+                X_train_scaled[:, 1:],
+                y_train
+            )
+
+            pred_lasso = lasso.predict(
+                X_val_scaled[:, 1:]
+            )
+
+            lasso_mse.append(
+                mse(y_val, pred_lasso)
+            )
+
+            lasso_r2.append(
+                r2_score(y_val, pred_lasso)
+            )
+
+        mean_ridge_mse = np.mean(ridge_mse)
+        mean_ridge_r2 = np.mean(ridge_r2)
+
+        mean_lasso_mse = np.mean(lasso_mse)
+        mean_lasso_r2 = np.mean(lasso_r2)
 
         results.append(
-            [degree, lam, "L2", mean_mse, mean_r2]
+            [degree, lam, "Ridge",
+             mean_ridge_mse, mean_ridge_r2]
+        )
+
+        results.append(
+            [degree, lam, "Lasso",
+             mean_lasso_mse, mean_lasso_r2]
         )
 
         print(
-            f"Degree={degree}, "
-            f"Lambda={lam}, "
-            f"CV MSE={mean_mse:.6f}, "
-            f"CV R²={mean_r2:.6f}"
+            f"Degree={degree}, Lambda={lam}, "
+            f"Ridge MSE={mean_ridge_mse:.6f}, "
+            f"Ridge R²={mean_ridge_r2:.6f}, "
+            f"Lasso MSE={mean_lasso_mse:.6f}, "
+            f"Lasso R²={mean_lasso_r2:.6f}"
         )
-
-for degree in degrees:
-
-    print("\nDegree:", degree)
-
-    best_mse = float("inf")
-    best_lam = None
-    best_r2 = None
-
-    for row in results:
-
-        d, lam, name, mse_value, r2_value = row
-
-        if d == degree and name == "L2":
-
-            if mse_value < best_mse:
-
-                best_mse = mse_value
-                best_lam = lam
-                best_r2 = r2_value
-
-    print(
-        "Best lambda:", best_lam,
-        "| CV MSE:", best_mse,
-        "| CV R²:", best_r2
-    )
 
 best_result = min(
     results,
@@ -352,15 +367,17 @@ best_result = min(
 
 best_degree = best_result[0]
 best_lambda = best_result[1]
+best_method = best_result[2]
 best_mse = best_result[3]
 best_r2 = best_result[4]
 
 print("Best Degree:", best_degree)
 print("Best Lambda:", best_lambda)
+print("Best Method:", best_method)
 print("Best CV MSE:", best_mse)
 print("Best CV R²:", best_r2)
 
-"""# ***Best Model : Degree 5 with interaction terms and L2 normalisation with lambda=10***"""
+"""# ***Best Model : Degree 5 with interaction terms and Lasso with lambda=0.01***"""
 
 test_data.shape
 
